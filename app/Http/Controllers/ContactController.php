@@ -12,22 +12,28 @@ class ContactController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
-        // 1. Validate submitted data
-        $validated = $request->validate([
-            'full_name' => 'required|string|max:255',
-
-            'mobile_number' => [
-                'required',
-                'regex:/^[0-9]{10}$/',
-            ],
-
-            'email' => 'required|email|max:255',
-
-            'city' => 'required|string|max:255',
-        ]);
-
         try {
-            // 2. Save enquiry in database
+
+            Log::info('CONTACT API CALLED');
+
+            $validated = $request->validate([
+                'full_name' => 'required|string|max:255',
+
+                'mobile_number' => [
+                    'required',
+                    'regex:/^[0-9]{10}$/',
+                ],
+
+                'email' => 'required|email|max:255',
+
+                'city' => 'required|string|max:255',
+            ]);
+
+            Log::info('CONTACT VALIDATION PASSED');
+
+            /*
+             * Save to database
+             */
             $contact = Contact::create([
                 'full_name' => trim($validated['full_name']),
                 'mobile_number' => trim($validated['mobile_number']),
@@ -35,7 +41,13 @@ class ContactController extends Controller
                 'city' => trim($validated['city']),
             ]);
 
-            // 3. Send email
+            Log::info('CONTACT DATABASE SAVE PASSED', [
+                'id' => $contact->id,
+            ]);
+
+            /*
+             * Send email
+             */
             $recipient = env(
                 'CONTACT_RECIPIENT',
                 'majesticdigital01@gmail.com'
@@ -43,10 +55,10 @@ class ContactController extends Controller
 
             Mail::raw(
                 "New Mount Castle Website Enquiry\n\n" .
-                "Full Name: " . $contact->full_name . "\n" .
-                "Mobile Number: " . $contact->mobile_number . "\n" .
-                "Email: " . $contact->email . "\n" .
-                "City: " . $contact->city . "\n\n" .
+                "Full Name: {$contact->full_name}\n" .
+                "Mobile Number: {$contact->mobile_number}\n" .
+                "Email: {$contact->email}\n" .
+                "City: {$contact->city}\n\n" .
                 "Submitted from Mount Castle website.",
                 function ($message) use ($recipient, $contact) {
                     $message
@@ -58,7 +70,8 @@ class ContactController extends Controller
                 }
             );
 
-            // 4. Return success response
+            Log::info('CONTACT EMAIL SENT');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Thank you! We will contact you shortly.',
@@ -68,15 +81,23 @@ class ContactController extends Controller
             ], 201);
 
         } catch (\Throwable $exception) {
-            // Save error in Laravel logs
-            Log::error('Contact enquiry failed', [
-                'error' => $exception->getMessage(),
+
+            Log::error('CONTACT API ERROR', [
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
             ]);
 
-            // Return error response
+            /*
+             * TEMPORARY DEBUG RESPONSE
+             *
+             * Remove this after fixing the problem.
+             */
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to submit your enquiry. Please try again later.',
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
             ], 500);
         }
     }
